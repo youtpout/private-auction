@@ -1,5 +1,5 @@
 import { TokenId, UInt64 } from "@proto-kit/library";
-import { Provable, Struct } from "o1js";
+import { CircuitString, Provable, Struct } from "o1js";
 import { string } from "yargs";
 
 /**
@@ -7,9 +7,9 @@ import { string } from "yargs";
  */
 export class ItemInfo extends Struct({
     itemId: UInt64,
-    name: string,
-    description: string,
-    url: string,
+    name: CircuitString,
+    description: CircuitString,
+    url: CircuitString,
     // nft , bond , art, stock market ...
     itemType: UInt64
 }) {
