@@ -1,9 +1,9 @@
 import { TestingAppChain } from "@proto-kit/sdk";
-import { CircuitString, method, PrivateKey } from "o1js";
-import { Auction } from "../../../src/runtime/auction";
+import { Bool, CircuitString, Field, method, PrivateKey } from "o1js";
+import { Auction } from "../../../src/runtime/auction/auction";
 import { log } from "@proto-kit/common";
 import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
-import { ItemInfo } from "../../../src/runtime/item/item-info";
+import { time } from "console";
 
 log.setLevel("ERROR");
 
@@ -32,16 +32,20 @@ describe("Auction", () => {
 
     const auction = appChain.runtime.resolve("Auction");
 
-    const item: ItemInfo = {
-      description: CircuitString.fromString("An awesome book"),
-      name: CircuitString.fromString("First book edition"),
-      itemId: UInt64.zero,
-      itemType: UInt64.from(3),
-      url: CircuitString.fromString("book.com")
-    }
+
+    const description = CircuitString.fromString("An awesome book");
+    const name = CircuitString.fromString("First book edition");
+    const itemType = UInt64.from(3);
+    const url = CircuitString.fromString("book.com");
+    const startPrice = UInt64.from(15 * 10 ** 9);
+    const startTime = UInt64.from(Date.now() + 10000);
+    const duration = UInt64.from(24 * 60 * 60);
+    const isPrivate = Bool(false);
+    const vkHash = Field.empty();
+
 
     const tx1 = await appChain.transaction(alice, async () => {
-      await auction.addItem(item);
+      await auction.addEnglishAuction(name, description, url, itemType, startPrice, startTime, duration, isPrivate, vkHash);
     });
 
     await tx1.sign();
@@ -56,13 +60,13 @@ describe("Auction", () => {
     console.log("added");
 
     const key = UInt64.from(1);
-    const itemAdded = await appChain.query.runtime.Auction.items.get(key);
+    const auctionAdded = await appChain.query.runtime.Auction.orders.get(key);
 
 
-    expect(itemAdded?.itemId?.toBigInt()).toBe(1n);
-    expect(itemAdded?.name.toString()).toBe("First book edition");
+    expect(auctionAdded?.orderId?.toBigInt()).toBe(1n);
+    expect(auctionAdded?.name.toString()).toBe("First book edition");
 
-    console.log("name : ", itemAdded?.name.toString());
+    console.log("name : ", auctionAdded?.name.toString());
 
   }, 1_000_000);
 });

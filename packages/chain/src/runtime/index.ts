@@ -2,7 +2,7 @@ import { Balance, VanillaRuntimeModules } from "@proto-kit/library";
 import { ModulesConfig } from "@proto-kit/common";
 
 import { Balances } from "./modules/balances";
-import { Auction } from "./auction";
+import { Auction } from "./auction/auction";
 
 export const modules = VanillaRuntimeModules.with({
   Balances,
