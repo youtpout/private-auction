@@ -1,10 +1,11 @@
 import { NoConfig } from "@proto-kit/common";
 import { runtimeMethod, runtimeModule, RuntimeModule, state } from "@proto-kit/module";
 import { StateMap, State } from "@proto-kit/protocol";
-import { Bool, CircuitString, Field, PublicKey } from "o1js";
+import { Bool, CircuitString, Field, Poseidon, Provable, PublicKey } from "o1js";
 import { UInt, UInt64 } from "@proto-kit/library";
 import { MainProof, SideloadedProgramProof } from "./sideload";
 import { Order } from "./order";
+import { Bid } from "./bid";
 
 /**
  * Runtime module to create orders
@@ -15,6 +16,9 @@ export class Auction extends RuntimeModule<NoConfig> {
     // all existing orders in the system
     @state() public orders = StateMap.from<UInt64, Order>(UInt64, Order);
     @state() public lastOrderId = State.from(UInt64);
+
+    @state() public bids = StateMap.from<Field, Bid>(Field, Bid);
+    @state() public bidCount = StateMap.from<Field, UInt64>(Field, UInt64);
 
     public constructor(
     ) {
@@ -46,6 +50,10 @@ export class Auction extends RuntimeModule<NoConfig> {
 
         order.orderType.assertEquals(1, "Not an english auction");
         order.isPrivate.assertFalse("Is a private auction");
+
+        const lastBidAmount = await this.getLastBidAmount(orderId);
+        const oldAmount = UInt64.from(lastBidAmount);
+        amount.greaterThan(oldAmount).assertTrue("This bid need to be greater than previous bid");
     }
 
     @runtimeMethod()
@@ -62,5 +70,31 @@ export class Auction extends RuntimeModule<NoConfig> {
         proof.publicInput.vkHash.assertEquals(order.vkHash);
         proof.verify();
 
+        const lastBidAmount = await this.getLastBidAmount(orderId);
+        const oldAmount = UInt64.from(lastBidAmount);
+        amount.greaterThan(oldAmount).assertTrue("This bid need to be greater than previous bid");
+
+    }
+
+    private async getLastBidAmount(orderId: UInt64) {
+        // resturn amount for the last bid
+        const lastBidId = await this.countBid(orderId);
+        const hashLastBid = Poseidon.hash([orderId.value, lastBidId.value]);
+        const lastBid = await this.bids.get(hashLastBid);
+        const bid = new Bid(lastBid.value);
+        const amount = Provable.if(bid.bidId.greaterThan(UInt64.zero), UInt64, UInt64.from(bid.amount), UInt64.from(UInt64.zero));
+        return UInt64.Safe.fromField(amount.value);
+    }
+
+    private async countBid(orderId: UInt64) {
+        // we store bid count at this hash
+        const hash = this.getHashCountBid(orderId);
+        const bidCount = await this.bidCount.get(hash);
+        return bidCount.value;
+    }
+
+    private getHashCountBid(orderId: UInt64) {
+        // we store bid count at this hash
+        return Poseidon.hash([orderId.value, Field(0)]);
     }
 }
