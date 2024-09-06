@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { TestingAppChain } from "@proto-kit/sdk";
 import { Bool, CircuitString, Field, method, PrivateKey } from "o1js";
 import { Auction } from "../../../src/runtime/auction/auction";

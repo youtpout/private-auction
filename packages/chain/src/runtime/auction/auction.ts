@@ -1,11 +1,12 @@
 import { NoConfig } from "@proto-kit/common";
 import { runtimeMethod, runtimeModule, RuntimeModule, state } from "@proto-kit/module";
-import { StateMap, State } from "@proto-kit/protocol";
+import { StateMap, State, assert } from "@proto-kit/protocol";
 import { Bool, CircuitString, Field, Poseidon, Provable, PublicKey } from "o1js";
-import { UInt, UInt64 } from "@proto-kit/library";
+import { Balances, TokenId, UInt, UInt64 } from "@proto-kit/library";
 import { MainProof, SideloadedProgramProof } from "./sideload";
 import { Order } from "./order";
 import { Bid } from "./bid";
+import { inject } from "tsyringe";
 
 /**
  * Runtime module to create orders
@@ -18,9 +19,16 @@ export class Auction extends RuntimeModule<NoConfig> {
     @state() public lastOrderId = State.from(UInt64);
 
     @state() public bids = StateMap.from<Field, Bid>(Field, Bid);
-    @state() public bidCount = StateMap.from<Field, UInt64>(Field, UInt64);
+    /**
+     * Count bid by order id
+     * Key OrderId
+     * Value bid length
+     */
+    @state() public bidCount = StateMap.from<UInt64, UInt64>(UInt64, UInt64);
 
-    public constructor(
+    public auctionPublicKey = PublicKey.fromGroup(Poseidon.hashToGroup([Field(555)]));
+
+    public constructor(@inject("Balances") public balances: Balances,
     ) {
         super();
     }
@@ -44,21 +52,20 @@ export class Auction extends RuntimeModule<NoConfig> {
 
     @runtimeMethod()
     public async bidEnglish(orderId: UInt64, amount: UInt64) {
-
+        const sender = this.transaction.sender.value;
         const orderOption = await this.orders.get(orderId);
         const order = new Order(orderOption.value);
 
         order.orderType.assertEquals(1, "Not an english auction");
         order.isPrivate.assertFalse("Is a private auction");
 
-        const lastBidAmount = await this.getLastBidAmount(orderId);
-        const oldAmount = UInt64.from(lastBidAmount);
-        amount.greaterThan(oldAmount).assertTrue("This bid need to be greater than previous bid");
+        await this.addBid(orderId, sender, amount);
     }
 
     @runtimeMethod()
-    public async bidEnglishPrivate(orderId: UInt64, sender: PublicKey, amount: UInt64, proof: MainProof) {
+    public async bidEnglishPrivate(orderId: UInt64, amount: UInt64, proof: MainProof) {
 
+        const sender = this.transaction.sender.value;
         const orderOption = await this.orders.get(orderId);
         const order = new Order(orderOption.value);
 
@@ -70,9 +77,37 @@ export class Auction extends RuntimeModule<NoConfig> {
         proof.publicInput.vkHash.assertEquals(order.vkHash);
         proof.verify();
 
+        await this.addBid(orderId, sender, amount);
+    }
+
+    @runtimeMethod()
+    public async withdrawBid(orderId: UInt64, bidId: UInt64) {
+        const sender = this.transaction.sender.value;
+        const orderOption = await this.orders.get(orderId);
+        const order = new Order(orderOption.value);
+
+        // i don't know if it's the good thing to do
+        const now = UInt64.Safe.fromField(this.network.block.height.value);
+        const endTime = order.startTime.add(order.duration);
+        const ended = endTime.lessThan(now);
+
+        assert(ended, "Auction didn't finish");
+    }
+
+    private async addBid(orderId: UInt64, sender: PublicKey, amount: UInt64) {
+        const lastBidId = await this.countBid(orderId);
         const lastBidAmount = await this.getLastBidAmount(orderId);
         const oldAmount = UInt64.from(lastBidAmount);
-        amount.greaterThan(oldAmount).assertTrue("This bid need to be greater than previous bid");
+        const greaterAmount = amount.greaterThan(oldAmount);
+        assert(greaterAmount, "This bid need to be greater than previous bid");
+        await this.balances.transfer(TokenId.from(0), sender, this.auctionPublicKey, amount);
+
+        const newBidId = lastBidId.add(1);
+        const bid = new Bid({ bidId: newBidId, orderId, creator: sender, amount: amount });
+        const hashBid = bid.hash();
+        await this.bids.set(hashBid, bid);
+        await this.bidCount.set(orderId, UInt64.from(newBidId));
+
 
     }
 
@@ -87,14 +122,8 @@ export class Auction extends RuntimeModule<NoConfig> {
     }
 
     private async countBid(orderId: UInt64) {
-        // we store bid count at this hash
-        const hash = this.getHashCountBid(orderId);
-        const bidCount = await this.bidCount.get(hash);
+        // we store bid count by orderId
+        const bidCount = await this.bidCount.get(orderId);
         return bidCount.value;
-    }
-
-    private getHashCountBid(orderId: UInt64) {
-        // we store bid count at this hash
-        return Poseidon.hash([orderId.value, Field(0)]);
     }
 }
