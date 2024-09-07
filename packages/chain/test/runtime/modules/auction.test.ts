@@ -36,6 +36,7 @@ describe("Auction", () => {
 
     const description = CircuitString.fromString("An awesome book");
     const name = CircuitString.fromString("First book edition");
+    const image = CircuitString.fromString("https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/FullMoon2010.jpg/290px-FullMoon2010.jpg");
     const itemType = UInt64.from(3);
     const url = CircuitString.fromString("book.com");
     const startPrice = UInt64.from(15 * 10 ** 9);
@@ -46,7 +47,7 @@ describe("Auction", () => {
 
 
     const tx1 = await appChain.transaction(alice, async () => {
-      await auction.addEnglishAuction(name, description, url, itemType, startPrice, startTime, duration, isPrivate, vkHash);
+      await auction.addEnglishAuction(name, image, description, url, itemType, startPrice, startTime, duration, isPrivate, vkHash);
     });
 
     await tx1.sign();

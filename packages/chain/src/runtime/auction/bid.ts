@@ -9,14 +9,17 @@ export class Bid extends Struct({
     bidId: UInt64,
     orderId: UInt64,
     creator: PublicKey,
-    amount: UInt64
+    amount: UInt64,
+    status: UInt64
 }) {
     constructor(
         value: {
             bidId: UInt64,
             orderId: UInt64,
             creator: PublicKey,
-            amount: UInt64
+            amount: UInt64,
+            // 0 active, 1 canceled, 2 paid
+            status: UInt64
         }
     ) {
         super(value);
@@ -32,7 +35,8 @@ export class Bid extends Struct({
             bidId,
             orderId,
             creator,
-            amount
+            amount,
+            status: UInt64.zero
         });
     }
 
