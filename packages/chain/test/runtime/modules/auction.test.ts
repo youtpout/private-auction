@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { TestingAppChain } from "@proto-kit/sdk";
-import { Bool, CircuitString, Field, method, PrivateKey } from "o1js";
+import { Bool, CircuitString, Field, method, PrivateKey, PublicKey } from "o1js";
 import { Auction } from "../../../src/runtime/auction/auction";
 import { log } from "@proto-kit/common";
 import { BalancesKey, TokenId, UInt64 } from "@proto-kit/library";
@@ -9,11 +9,15 @@ import { time } from "console";
 log.setLevel("ERROR");
 
 describe("Auction", () => {
-  it("should add a item", async () => {
-    const appChain = TestingAppChain.fromRuntime({
+  let appChain: any;
+  let alice: PublicKey;
+  let auction: Auction;
+
+  beforeAll(async () => {
+
+    appChain = TestingAppChain.fromRuntime({
       Auction,
     });
-
     appChain.configurePartial({
       Runtime: {
         Balances: {
@@ -27,12 +31,14 @@ describe("Auction", () => {
     await appChain.start();
 
     const alicePrivateKey = PrivateKey.random();
-    const alice = alicePrivateKey.toPublicKey();
+    alice = alicePrivateKey.toPublicKey();
 
     appChain.setSigner(alicePrivateKey);
 
-    const auction = appChain.runtime.resolve("Auction");
+    auction = appChain.runtime.resolve("Auction");
+  });
 
+  it("should add a item", async () => {
 
     const description = CircuitString.fromString("An awesome book");
     const name = CircuitString.fromString("First book edition");
@@ -54,8 +60,6 @@ describe("Auction", () => {
     await tx1.send();
 
     const block = await appChain.produceBlock();
-
-
 
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
 

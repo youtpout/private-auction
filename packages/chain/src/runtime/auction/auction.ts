@@ -88,6 +88,39 @@ export class Auction extends RuntimeModule<NoConfig> {
     }
 
     @runtimeMethod()
+    public async payAuction(orderId: UInt64) {
+        const orderOption = await this.orders.get(orderId);
+        const order = new Order(orderOption.value);
+
+        // i don't know if it's the good thing to do
+        const now = UInt64.Safe.fromField(this.network.block.height.value);
+        const endTime = order.startTime.add(order.duration);
+        const ended = endTime.lessThan(now);
+
+        assert(ended, "Auction didn't finish");
+
+        const lastBidId = await this.countBid(orderId);
+        assert(lastBidId.greaterThan(UInt64.zero), "No bid for this auction");
+
+        // check if not already paid
+        const hashBid = Poseidon.hash([orderId.value, lastBidId.value]);
+        const bidValue = await this.bids.get(hashBid);
+        const bid = new Bid(bidValue.value);
+        const active = bid.status.equals(UInt64.zero);
+        assert(active, "This bid is not active");
+
+        //
+        await this.balances.transfer(TokenId.from(0), this.auctionPublicKey, order.creator, bid.amount);
+        // update bid with paid status
+        bid.status = UInt64.from(2);
+        await this.bids.set(hashBid, bid);
+
+        // change owner of the auction to the bidder
+        order.owner = bid.creator;
+        await this.orders.set(orderId, order);
+    }
+
+    @runtimeMethod()
     public async withdrawBid(orderId: UInt64, bidId: UInt64) {
         const sender = this.transaction.sender.value;
         const orderOption = await this.orders.get(orderId);
