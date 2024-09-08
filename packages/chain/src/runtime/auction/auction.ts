@@ -2,11 +2,12 @@ import { NoConfig } from "@proto-kit/common";
 import { runtimeMethod, runtimeModule, RuntimeModule, state } from "@proto-kit/module";
 import { StateMap, State, assert } from "@proto-kit/protocol";
 import { Bool, CircuitString, Field, Poseidon, Provable, PublicKey } from "o1js";
-import { Balances, TokenId, UInt, UInt64 } from "@proto-kit/library";
+import { Balance, TokenId, UInt, UInt64 } from "@proto-kit/library";
 import { MainProof, SideloadedProgramProof } from "./sideload";
 import { Order } from "./order";
 import { Bid } from "./bid";
 import { inject } from "tsyringe";
+import { Balances } from "../modules/balances";
 
 /**
  * Runtime module to create orders
@@ -32,7 +33,6 @@ export class Auction extends RuntimeModule<NoConfig> {
     ) {
         super();
     }
-
 
     /**
   * Register a new english auction
@@ -154,7 +154,7 @@ export class Auction extends RuntimeModule<NoConfig> {
         const orderValue = await this.orders.get(orderId);
         const order = new Order(orderValue.value);
         const now = UInt64.Safe.fromField(this.network.block.height.value);
-        const started = order.startTime.greaterThanOrEqual(now);
+        const started = now.greaterThanOrEqual(order.startTime);
         assert(started, "Auction not started");
         const endTime = order.startTime.add(order.duration);
         const ended = endTime.greaterThan(now);

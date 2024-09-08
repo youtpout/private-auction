@@ -11,7 +11,7 @@ export const modules = VanillaRuntimeModules.with({
 
 export const config: ModulesConfig<typeof modules> = {
   Balances: {
-    totalSupply: Balance.from(10_000),
+    totalSupply: Balance.from(10_000_000 * 10 ** 9),
   },
   Auction: {}
 };
