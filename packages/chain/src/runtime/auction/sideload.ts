@@ -15,7 +15,7 @@ import {
 } from 'o1js';
 
 
-const sideloadedProgram = ZkProgram({
+export const sideloadedProgram = ZkProgram({
     name: 'childProgram',
     publicInput: PublicKey,
     methods: {
@@ -32,7 +32,7 @@ const sideloadedProgram = ZkProgram({
 const featureFlags = await FeatureFlags.fromZkProgram(sideloadedProgram);
 
 export class SideloadedProgramProof extends DynamicProof<PublicKey, void> {
-    static publicInputType = Field;
+    static publicInputType = PublicKey;
     static maxProofsVerified = 0 as const;
 
     // we use the feature flags that we computed from the `sideloadedProgram` ZkProgram
@@ -40,7 +40,7 @@ export class SideloadedProgramProof extends DynamicProof<PublicKey, void> {
 }
 
 
-class MainProgramState extends Struct({
+export class MainProgramState extends Struct({
     address: PublicKey,
     vkHash: Field,
 }) { }
@@ -68,5 +68,3 @@ export const mainProgram = ZkProgram({
     },
 });
 
-export let MainProof_ = ZkProgram.Proof(mainProgram);
-export class MainProof extends MainProof_ { }

@@ -1,13 +1,16 @@
 import { NoConfig } from "@proto-kit/common";
 import { runtimeMethod, runtimeModule, RuntimeModule, state } from "@proto-kit/module";
 import { StateMap, State, assert } from "@proto-kit/protocol";
-import { Bool, CircuitString, Field, Poseidon, Provable, PublicKey } from "o1js";
+import { Bool, CircuitString, Field, Poseidon, Provable, PublicKey, ZkProgram } from "o1js";
 import { Balance, TokenId, UInt, UInt64 } from "@proto-kit/library";
-import { MainProof, SideloadedProgramProof } from "./sideload";
+import { mainProgram } from "./sideload";
 import { Order } from "./order";
 import { Bid } from "./bid";
 import { inject } from "tsyringe";
 import { Balances } from "../modules/balances";
+
+export let MainProof_ = ZkProgram.Proof(mainProgram);
+export class MainProof extends MainProof_ { }
 
 /**
  * Runtime module to create orders
