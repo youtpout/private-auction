@@ -18,7 +18,7 @@ export default function Home() {
   const auction = (order: OrderModel) => {
     return (<div>
       <div><span>{order.orderId}</span></div>
-      <div><img height={50} src={order.image} /></div>
+      <div><img crossorigin='anonymous' width={100} src={order.image} /></div>
       <div></div>
       <div></div>
       <div></div>
