@@ -122,7 +122,6 @@ export class Auction extends RuntimeModule<NoConfig> {
 
     @runtimeMethod()
     public async withdrawBid(orderId: UInt64, bidId: UInt64) {
-        const sender = this.transaction.sender.value;
         const orderOption = await this.orders.get(orderId);
         const order = new Order(orderOption.value);
 
@@ -143,7 +142,7 @@ export class Auction extends RuntimeModule<NoConfig> {
         const active = bid.status.equals(UInt64.zero);
         assert(active, "This bid is not active");
 
-        await this.balances.transfer(TokenId.from(0), this.auctionPublicKey, sender, bid.amount);
+        await this.balances.transfer(TokenId.from(0), this.auctionPublicKey, bid.creator, bid.amount);
         // update bid with canceled status
         bid.status = UInt64.from(1);
         await this.bids.set(hashBid, bid);

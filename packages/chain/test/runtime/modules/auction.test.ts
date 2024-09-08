@@ -16,6 +16,8 @@ describe("Auction", () => {
   let alice: PublicKey;
   let bobPrivateKey: PrivateKey;
   let bob: PublicKey;
+  let dylanPrivateKey: PrivateKey;
+  let dylan: PublicKey;
   let auction: Auction;
   let balances: Balances;
   let tokenId = TokenId.from(0);
@@ -40,7 +42,10 @@ describe("Auction", () => {
     alice = alicePrivateKey.toPublicKey();
 
     bobPrivateKey = PrivateKey.random();
-    bob = alicePrivateKey.toPublicKey();
+    bob = bobPrivateKey.toPublicKey();
+
+    dylanPrivateKey = PrivateKey.random();
+    dylan = dylanPrivateKey.toPublicKey();
 
     appChain.setSigner(alicePrivateKey);
 
@@ -48,7 +53,6 @@ describe("Auction", () => {
     balances = appChain.runtime.resolve("Balances");
 
     const tx1 = await appChain.transaction(alice, async () => {
-      await balances.addBalance(tokenId, alice, UInt64.from(1000 * 10 ** 9));
       await balances.addBalance(tokenId, bob, UInt64.from(1000 * 10 ** 9));
     });
 
@@ -57,6 +61,16 @@ describe("Auction", () => {
 
     const block = await appChain.produceBlock();
     expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+    const tx2 = await appChain.transaction(alice, async () => {
+      await balances.addBalance(tokenId, dylan, UInt64.from(1000 * 10 ** 9));
+    });
+
+    await tx2.sign();
+    await tx2.send();
+
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
   });
 
   it("should add an auction", async () => {
@@ -125,7 +139,7 @@ describe("Auction", () => {
 
     await produceBlocks(10);
 
-
+    appChain.setSigner(bobPrivateKey);
     const tx2 = await appChain.transaction(bob, async () => {
       await auction.bidEnglish(UInt64.from(1), UInt64.from(2 * 10 ** 9));
     });
@@ -148,6 +162,107 @@ describe("Auction", () => {
     console.log("balance bob", balanceBobAfter.toBigInt());
     const dif = balanceBob.sub(balanceBobAfter);
     expect(dif.toBigInt()).toBe(UInt64.from(2 * 10 ** 9).toBigInt());
+
+    appChain.setSigner(dylanPrivateKey);
+    const tx3 = await appChain.transaction(dylan, async () => {
+      await auction.bidEnglish(UInt64.from(1), UInt64.from(3 * 10 ** 9));
+    });
+    await tx3.sign();
+    await tx3.send();
+
+    const block3 = await appChain.produceBlock();
+    expect(block3?.transactions[0].status.toBoolean()).toBe(true);
+
+  }, 1_000_000);
+
+  it("should complete an auction", async () => {
+
+    const description = CircuitString.fromString("An awesome book");
+    const name = CircuitString.fromString("First book edition");
+    const image = CircuitString.fromString("https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/FullMoon2010.jpg/290px-FullMoon2010.jpg");
+    const itemType = UInt64.from(3);
+    const url = CircuitString.fromString("book.com");
+    const startPrice = UInt64.from(1 * 10 ** 9);
+    const startTime = UInt64.from(10);
+    const duration = UInt64.from(100);
+    const isPrivate = Bool(false);
+    const vkHash = Field.empty();
+
+
+    const tx1 = await appChain.transaction(alice, async () => {
+      await auction.addEnglishAuction(name, image, description, url, itemType, startPrice, startTime, duration, isPrivate, vkHash);
+    });
+
+    await tx1.sign();
+    await tx1.send();
+
+    const block = await appChain.produceBlock();
+    expect(block?.transactions[0].status.toBoolean()).toBe(true);
+
+
+    await produceBlocks(10);
+
+    appChain.setSigner(bobPrivateKey);
+    const tx2 = await appChain.transaction(bob, async () => {
+      await auction.bidEnglish(UInt64.from(1), UInt64.from(2 * 10 ** 9));
+    });
+
+    const key = new BalancesKey({ tokenId, address: bob });
+    const balanceBob = await appChain.query.runtime.Balances.balances.get(key);
+
+    await tx2.sign();
+    await tx2.send();
+
+    const block2 = await appChain.produceBlock();
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
+    const balanceBobAfter = await appChain.query.runtime.Balances.balances.get(key);
+    const dif = balanceBob.sub(balanceBobAfter);
+    expect(dif.toBigInt()).toBe(UInt64.from(2 * 10 ** 9).toBigInt());
+
+    appChain.setSigner(dylanPrivateKey);
+    const tx3 = await appChain.transaction(dylan, async () => {
+      await auction.bidEnglish(UInt64.from(1), UInt64.from(3 * 10 ** 9));
+    });
+    await tx3.sign();
+    await tx3.send();
+
+    const block3 = await appChain.produceBlock();
+    expect(block3?.transactions[0].status.toBoolean()).toBe(true);
+
+    await produceBlocks(100);
+
+    const tx4 = await appChain.transaction(dylan, async () => {
+      await auction.payAuction(UInt64.from(1));
+    });
+    await tx4.sign();
+    await tx4.send();
+
+    const balanceAlice = await appChain.query.runtime.Balances.balances.get(new BalancesKey({ tokenId, address: alice }));
+    const block4 = await appChain.produceBlock();
+    console.log(block4?.transactions[0].statusMessage);
+    expect(block4?.transactions[0].status.toBoolean()).toBe(true);
+
+    const balanceAliceAfter = await appChain.query.runtime.Balances.balances.get(new BalancesKey({ tokenId, address: alice }));
+    const dif2 = balanceAliceAfter.sub(balanceAlice);
+    // receive dylan amount
+    expect(dif2.toBigInt()).toBe(UInt64.from(3 * 10 ** 9).toBigInt());
+
+    // withdraw bob bid
+    const tx5 = await appChain.transaction(dylan, async () => {
+      await auction.withdrawBid(UInt64.from(1), UInt64.from(1));
+    });
+    await tx5.sign();
+    await tx5.send();
+
+    const block5 = await appChain.produceBlock();
+    console.log(block5?.transactions[0].statusMessage);
+    expect(block5?.transactions[0].status.toBoolean()).toBe(true);
+
+    const balanceFinalBob = await appChain.query.runtime.Balances.balances.get(key);
+    // bob was reimboursed
+    console.log("bob balance", balanceFinalBob.toBigInt());
+    expect(balanceBob.toBigInt()).toBe(balanceFinalBob.toBigInt());
 
   }, 1_000_000);
 });
