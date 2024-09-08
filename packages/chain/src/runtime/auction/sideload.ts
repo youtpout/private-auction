@@ -39,6 +39,9 @@ export class SideloadedProgramProof extends DynamicProof<PublicKey, void> {
     static featureFlags = featureFlags;
 }
 
+export let SideProof_ = ZkProgram.Proof(sideloadedProgram);
+export class SideProof extends SideProof_ { }
+
 
 export class MainProgramState extends Struct({
     address: PublicKey,
@@ -52,19 +55,22 @@ export const mainProgram = ZkProgram({
         validateProof: {
             privateInputs: [
                 VerificationKey,
-                SideloadedProgramProof
+                SideProof
             ],
             async method(
                 publicInput: MainProgramState,
                 vk: VerificationKey,
-                proof: SideloadedProgramProof
+                proof: SideProof
             ) {
                 proof.publicInput.assertEquals(publicInput.address);
                 const vkHash = vk.hash;
                 vkHash.assertEquals(publicInput.vkHash);
-                proof.verify(vk);
+                proof.verify();
             },
         },
     },
 });
+
+export let MainProof_ = ZkProgram.Proof(mainProgram);
+export class MainProof extends MainProof_ { }
 

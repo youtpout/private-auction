@@ -3,14 +3,12 @@ import { runtimeMethod, runtimeModule, RuntimeModule, state } from "@proto-kit/m
 import { StateMap, State, assert } from "@proto-kit/protocol";
 import { Bool, CircuitString, Field, Poseidon, Provable, PublicKey, ZkProgram } from "o1js";
 import { Balance, TokenId, UInt, UInt64 } from "@proto-kit/library";
-import { mainProgram } from "./sideload";
+import { mainProgram, MainProof } from "./sideload";
 import { Order } from "./order";
 import { Bid } from "./bid";
 import { inject } from "tsyringe";
 import { Balances } from "../modules/balances";
 
-export let MainProof_ = ZkProgram.Proof(mainProgram);
-export class MainProof extends MainProof_ { }
 
 /**
  * Runtime module to create orders

@@ -302,10 +302,10 @@ describe("Auction", () => {
 
     // create the proof
     const proofBob = await sideloadedProgram.canBid(bob, Bool(true));
-    const sideload = SideloadedProgramProof.fromProof(proofBob);
-    console.log("sideload created");
+    // const sideload = SideloadedProgramProof.fromProof(proofBob);
     const newProgram = new MainProgramState({ address: bob, vkHash: vk.verificationKey.hash });
-    const appProof = await mainProgram.validateProof(newProgram, vk.verificationKey, sideload);
+    const appProof = await mainProgram.validateProof(newProgram, vk.verificationKey, proofBob);
+    console.log("appproff");
 
     appChain.setSigner(bobPrivateKey);
     const tx2 = await appChain.transaction(bob, async () => {
@@ -319,15 +319,20 @@ describe("Auction", () => {
     await tx2.send();
 
     const block2 = await appChain.produceBlock();
-    expect(block2?.transactions[0].status.toBoolean()).toBe(false);
+    expect(block2?.transactions[0].status.toBoolean()).toBe(true);
+
 
     const balanceBobAfter = await appChain.query.runtime.Balances.balances.get(key);
     const dif = balanceBob.sub(balanceBobAfter);
     expect(dif.toBigInt()).toBe(UInt64.from(2 * 10 ** 9).toBigInt());
 
     appChain.setSigner(dylanPrivateKey);
+    const proofDylan = await sideloadedProgram.canBid(dylan, Bool(true));
+    const newProgram2 = new MainProgramState({ address: dylan, vkHash: vk.verificationKey.hash });
+    const appProof2 = await mainProgram.validateProof(newProgram2, vk.verificationKey, proofDylan);
+
     const tx3 = await appChain.transaction(dylan, async () => {
-      await auction.bidEnglish(UInt64.from(1), UInt64.from(3 * 10 ** 9));
+      await auction.bidEnglishPrivate(UInt64.from(1), UInt64.from(3 * 10 ** 9), appProof2);
     });
     await tx3.sign();
     await tx3.send();
